@@ -1,157 +1,226 @@
-#include "main.h"
-
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-
-
-//Funtion to create a new node
-Node* createNode(const  char *ruleIdentifier, const char *production)
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define N 100
+typedef struct
 {
-	Node *newNode = (Node *)malloc(sizeof(Node));
-    newNode->ruleIdentifier = strdup(ruleIdentifier); //store rule identifier
-    newNode->productions = strdup(production);        //store production
-    newNode->next = NULL;
-    return newNode;
+    char name[N], c;
+} TDato;
+typedef struct node
+{
+    struct node *next, *prev;
+    TDato dato;
+} TnodeD;
+TnodeD *crearN(TDato dato);
+TnodeD *crearN(TDato dato)
+{
+    TnodeD *nuevo = (TnodeD *)malloc(sizeof(TnodeD));
+    nuevo->next = nuevo->prev = nuevo;
+    strcpy(nuevo->dato.name, dato.name);
+    nuevo->dato.c = dato.c;
+    return nuevo;
 }
-
-//Funtion to find a node by rule identifier
-Node* findNode(Node *head, const char *ruleIdentifier)
+void inicializarlista(TnodeD **cent);
+void inicializarlista(TnodeD **cent)
 {
-    Node *current=head;
-    while(current != NULL)
+    TDato dato = {"\0", 0};
+    *cent = crearN(dato);
+    (*cent)->next = (*cent)->prev = *cent;
+}
+void insertarnodo(TnodeD *nuevo, TnodeD *cent);
+void insertarnodo(TnodeD *nuevo, TnodeD *cent)
+{
+    nuevo->next = cent;
+    nuevo->prev = cent->prev;
+    cent->prev->next = nuevo;
+    cent->prev = nuevo;
+}
+void insertar(TnodeD *cent, TDato dato);
+void insertar(TnodeD *cent, TDato dato)
+{
+    TnodeD *nuevo = crearN(dato);
+    insertarnodo(nuevo, cent);
+}
+void removeblanks(char *name);
+void removeblanks(char *name)
+{
+    int i, j = 0;
+    for (i = 0; i < (int)strlen(name); i++)
+        if (name[i] != ' ')
+            name[j++] = name[i];
+    name[j] = '\0';
+}
+void separacadena(char *name, TDato *dato);
+void separacadena(char *name, TDato *dato)
+{
+    int i, j = 0;
+    dato->c = name[0];
+    for (i = 3; i < (int)strlen(name); i++)
+        dato->name[j++] = name[i];
+    dato->name[j] = '\0';
+}
+void lecturaGR(char *name, TnodeD *cent);
+void lecturaGR(char *name, TnodeD *cent)
+{
+    FILE *fgr;
+    char linea[N];
+    TDato dato;
+    fgr = fopen(name, "r");
+    while (!feof(fgr))
     {
-        if(strcmp(current->ruleIdentifier, ruleIdentifier) == 0)
-        {
-            return current; //Return the node if found
-        }
-        current = current->next;
+        fscanf(fgr, " %[^\n]", linea);
+        removeblanks(linea);
+        separacadena(linea, &dato);
+        insertar(cent, dato);
     }
-    return NULL; //Return NULL if not  foundby
+    fclose(fgr);
 }
-
-//Funcion to append a production to an existing node
-void appendProduction(Node *node, const char *production)
+void imprimir(TnodeD *cent);
+void imprimir(TnodeD *cent)
 {
-    //Allocate new space to hold the existing productions + new production + separator " | "
-    size_t newSize = strlen(node->productions) + strlen(production) + 4;
-    node->productions = (char *)realloc(node->productions, newSize);
-
-    // Append the newproduction whit " | " separator
-    strcat(node->productions, " | ");
-    strcat(node->productions, production);
+    TnodeD *actual;
+    for (actual = cent->next; actual != cent; actual = actual->next)
+        printf(" %c %s\n", actual->dato.c, actual->dato.name);
+    printf("\n");
 }
-
-//Funcion to aooend a new node or update an existing one
-void appendOrUpdateNode(Node **head, const char *ruleIdentifier, const char *production)
+void OR(char *str1, char *str2);
+void OR(char *str1, char *str2)
 {
-    Node *existingNode = findNode(*head,ruleIdentifier);
-    if(existingNode != NULL)
-    {
-        appendProduction(existingNode, production); //If found, append the production 
-    }
-    else
-    {
-        Node *newNode = createNode(ruleIdentifier, production); //Create a new node
-        if(*head == NULL)
+    int i, j = 1, strsize = strlen(str1);
+    str1[strsize] = '|';
+    for (i = 0; i < (int)strlen(str2); i++)
+        str1[strsize + j++] = str2[i];
+    str1[strsize + j] = '\0';
+}
+void comprimir(TnodeD *cent);
+void comprimir(TnodeD *cent)
+{
+    TnodeD *i, *j;
+    char start = cent->next->dato.c;
+    for (i = j = cent->next->next; i != cent; i = i->next)
+        if (start != i->dato.c)
         {
-            *head= newNode; //If the list is empty, set the head
+            strcpy(j->dato.name, i->dato.name);
+            j->dato.c = start = i->dato.c;
+            j = j->next;
         }
-        else
+    j = j->prev;
+    i = cent->prev;
+    while (i != j)
+    {
+        i = i->prev;
+        free(i->next);
+    }
+    cent->prev = j;
+    j->next = cent;
+}
+void agrupacion(TnodeD *cent);
+void agrupacion(TnodeD *cent)
+{
+    TnodeD *i, *j;
+    for (i = cent->next; i != cent; i = j)
+        for (j = i->next; j != cent && i->dato.c == j->dato.c; j = j->next)
+            OR(i->dato.name, j->dato.name);
+    comprimir(cent);
+}
+char *strchrpos(char *str, char c, int pos);
+char *strchrpos(char *str, char c, int pos)
+{
+    int i;
+    char *cut = strchr(str, c),*cpy=NULL;
+    if (cut)
+    {
+        cpy = strdup(cut);
+        for (i = pos; i <= (int)strlen(cpy); i++)
+            cpy[i - pos] = cpy[i];
+    }
+    return cpy;
+}
+void agregarllaves(TnodeD *actual);
+void agregarllaves(TnodeD *actual)
+{
+    char *cut = strchrpos(actual->dato.name,actual->dato.c,1);
+    if(!cut)
+        return;
+    int pos,i;
+    char beforeChar[N],*or1,*or2;
+    or1=strchr(actual->dato.name,'|');
+    or2=strrchr(actual->dato.name,'|');
+    if(or1!=or2)
+    {
+        cut[0]='(';
+        cut[strlen(cut)]=')';
+        cut[strlen(cut)+1]='\0';
+    }
+    if(or1==or2)
+        for (i = 1; i <= (int)strlen(cut); i++)
+            cut[i - 1] = cut[i];
+    for (pos = 0; pos<(int)strlen(actual->dato.name) && actual->dato.name[pos] != actual->dato.c; pos++)
+        beforeChar[pos]=actual->dato.name[pos];
+    beforeChar[pos]='\0';
+    actual->dato.name[1]='\0';
+    actual->dato.name[0]='{';
+    strcat(actual->dato.name,beforeChar);
+    pos=strlen(actual->dato.name);
+    actual->dato.name[pos]='}';
+    actual->dato.name[pos+1]='\0';
+    strcat(actual->dato.name,cut);
+}
+void cambiarOR(TnodeD *cent);
+void cambiarOR(TnodeD *cent)
+{
+    TnodeD *i;
+    for (i = cent->next; i != cent; i = i->next)
+        agregarllaves(i);
+}
+void cambioLetra(TnodeD *dest, TnodeD *org, char *cut);
+void cambioLetra(TnodeD *dest, TnodeD *org, char *cut)
+{
+    int pos;
+    for (pos = 0; dest->dato.name[pos] != org->dato.c; pos++);
+    dest->dato.name[pos]='\0';
+    strcat(dest->dato.name, org->dato.name);
+    strcat(dest->dato.name, cut);
+}
+void sustitucion(TnodeD *cent);
+void sustitucion(TnodeD *cent)
+{
+    TnodeD *i=cent->next, *j=i->next;
+    char *cut;
+    for (i = cent->next; i != cent; i = i->next)
+        for (j = i->next; j != cent; j = j->next)
         {
-            Node *temp= *head;
-            while(temp->next != NULL)
+            cut = strchrpos(j->dato.name, i->dato.c, 1);
+            if (cut)
             {
-                temp= temp->next;
+                cambioLetra(j, i, cut);
+                agregarllaves(j);
+                free(cut);
             }
-            temp->next= newNode; //Add the new node to the end of the list
         }
-    }
+    for (i = cent->prev; i != cent; i = i->prev)
+        for (j = i->prev; j != cent; j = j->prev)
+        {
+            cut = strchrpos(j->dato.name, i->dato.c, 1);
+            if (cut)
+            {
+                cambioLetra(j, i, cut);
+                agregarllaves(j);
+                free(cut);
+            }
+        }
 }
-
-//Function to free the  linked list
-void freeLinkedList(Node *head)
-{
-    Node *current = head;
-    Node *nextNode;
-    while(current != NULL)
-    {
-        nextNode = current->next;
-        free(current->ruleIdentifier); //Free the rule identifier string
-        free(current->productions);    //Free the production string
-        free(current);                 //Free the node
-        current = nextNode;
-    }
-}
-
-//Funtion to split a line into rule identifier and oridyction
-void splitLine(const char *line, char *ruleIdentifier, char *production)
-{
-    //Find the position of "->"in the line
-    const char *delimiter= strstr(line, "->");
-    if(delimiter != NULL)
-    {
-        //copy the part before "->" into ruleIdentifire
-        strncpy(ruleIdentifier, line, delimiter - line);
-        ruleIdentifier[delimiter - line] = '\0'; //NULL-terminate the identifier
-
-        //copy the part after "->" into production
-        strcpy(production, delimiter + 2); //Skip the "->"
-    }
-}
-
-//Function to create a linked list from the file
-Node* createLinkedList(FILE *file)
-{
-    Node *head= NULL; //Head of the linked list
-    char line[MAX_LINE_LENGTH];
-    char ruleIdentifier[MAX_LINE_LENGTH];
-    char production[MAX_LINE_LENGTH];
-
-    //Read the file line by line and store each line in a new node or update an existing one
-    while(fgets(line, sizeof(line), file))
-    {
-        //Remove the newline character if present
-        line[strcspn(line, "\n")]= '\0';
-
-        //Split the line into rule ifentifier and production 
-        splitLine(line, ruleIdentifier, production);
-
-        //Append or update the node in the linked list
-        appendOrUpdateNode(&head, ruleIdentifier, production);
-    }
-
-    return head;
-}
-
-//Funtion to print the linked list
-void printList(Node *head)
-{
-    Node *current = head;
-    while(current != NULL)
-    {
-        printf("%s -> %s\n", current->ruleIdentifier, current->productions);
-        current = current->next;
-    }
-}
-
 int main()
 {
-    FILE *file= fopen("gramatica1.txt","r");
-    if(file == NULL)
-    {
-        perror("Error openinh file");
-        return 1;
-    }
-
-    Node *head= createLinkedList(file);
-
-    fclose(file);
-
-    //Ouput the contents of the linked list
-    printList(head);
-
-    //Free the linked list
-    freeLinkedList(head);
+    char nombre[N]; //4 horas
+    TnodeD *cent = NULL;
+    printf("Dame el nombre del archivo: ");
+    scanf(" %[^\n]",nombre);
+    inicializarlista(&cent);
+    lecturaGR(nombre, cent);
+    agrupacion(cent);
+    cambiarOR(cent);
+    sustitucion(cent);
+    printf("EXPRESION REGULAR: %s",cent->next->dato.name);
     return 0;
 }
